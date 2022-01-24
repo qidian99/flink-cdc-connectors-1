@@ -72,6 +72,7 @@ public class MySqlSourceConfigFactory implements Serializable {
     private boolean scanNewlyAddedTableEnabled = false;
     private Properties jdbcProperties;
     private Duration heartbeatInterval = HEARTBEAT_INTERVAL.defaultValue();
+    private boolean dispatchWatermarkOnBinlogStart = false;
     private Properties dbzProperties;
 
     public MySqlSourceConfigFactory hostname(String hostname) {
@@ -223,6 +224,16 @@ public class MySqlSourceConfigFactory implements Serializable {
         return this;
     }
 
+    /**
+     * Whether the {@link MySqlSource} should dispatch a watermark event to downstream when a binlog
+     * split is executed.
+     */
+    public MySqlSourceConfigFactory dispatchWatermarkOnBinlogStart(
+            boolean dispatchWatermarkOnBinlogStart) {
+        this.dispatchWatermarkOnBinlogStart = dispatchWatermarkOnBinlogStart;
+        return this;
+    }
+
     /** Specifies the startup options. */
     public MySqlSourceConfigFactory startupOptions(StartupOptions startupOptions) {
         switch (startupOptions.startupMode) {
@@ -331,6 +342,7 @@ public class MySqlSourceConfigFactory implements Serializable {
                 includeSchemaChanges,
                 scanNewlyAddedTableEnabled,
                 props,
+                dispatchWatermarkOnBinlogStart,
                 jdbcProperties);
     }
 }

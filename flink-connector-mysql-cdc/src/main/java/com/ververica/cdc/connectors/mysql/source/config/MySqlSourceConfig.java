@@ -57,6 +57,7 @@ public class MySqlSourceConfig implements Serializable {
     private final boolean includeSchemaChanges;
     private final boolean scanNewlyAddedTableEnabled;
     private final Properties jdbcProperties;
+    private final boolean dispatchWatermarkOnBinlogStart;
 
     // --------------------------------------------------------------------------------------------
     // Debezium Configurations
@@ -85,8 +86,9 @@ public class MySqlSourceConfig implements Serializable {
             double distributionFactorLower,
             boolean includeSchemaChanges,
             boolean scanNewlyAddedTableEnabled,
-            Properties dbzProperties,
-            Properties jdbcProperties) {
+            Properties jdbcProperties,
+            boolean dispatchWatermarkOnBinlogStart,
+            Properties dbzProperties) {
         this.hostname = checkNotNull(hostname);
         this.port = port;
         this.username = checkNotNull(username);
@@ -106,10 +108,15 @@ public class MySqlSourceConfig implements Serializable {
         this.distributionFactorLower = distributionFactorLower;
         this.includeSchemaChanges = includeSchemaChanges;
         this.scanNewlyAddedTableEnabled = scanNewlyAddedTableEnabled;
+        this.dispatchWatermarkOnBinlogStart = dispatchWatermarkOnBinlogStart;
         this.dbzProperties = checkNotNull(dbzProperties);
         this.dbzConfiguration = Configuration.from(dbzProperties);
         this.dbzMySqlConfig = new MySqlConnectorConfig(dbzConfiguration);
         this.jdbcProperties = jdbcProperties;
+    }
+
+    public boolean shouldDispatchWatermarkOnBinlogStart() {
+        return dispatchWatermarkOnBinlogStart;
     }
 
     public String getHostname() {

@@ -51,6 +51,7 @@ public class MySqlBinlogSplitReadTask extends MySqlStreamingChangeEventSource {
     private final EventDispatcherImpl<TableId> eventDispatcher;
     private final SignalEventDispatcher signalEventDispatcher;
     private final ErrorHandler errorHandler;
+    private final boolean shouldDispatchWatermarkOnStart;
     private ChangeEventSourceContext context;
 
     public MySqlBinlogSplitReadTask(
@@ -62,17 +63,26 @@ public class MySqlBinlogSplitReadTask extends MySqlStreamingChangeEventSource {
             Clock clock,
             MySqlTaskContext taskContext,
             MySqlStreamingChangeEventSourceMetrics metrics,
+            boolean shouldDispatchWatermarkOnStart,
             MySqlBinlogSplit binlogSplit) {
         super(connectorConfig, connection, dispatcher, errorHandler, clock, taskContext, metrics);
         this.binlogSplit = binlogSplit;
         this.eventDispatcher = dispatcher;
         this.errorHandler = errorHandler;
+        this.shouldDispatchWatermarkOnStart = shouldDispatchWatermarkOnStart;
         this.signalEventDispatcher = signalEventDispatcher;
     }
 
     @Override
     public void execute(ChangeEventSourceContext context, MySqlOffsetContext offsetContext)
             throws InterruptedException {
+
+        if (shouldDispatchWatermarkOnStart) {
+            signalEventDispatcher.dispatchWatermarkEvent(
+                    binlogSplit,
+                    getBinlogPosition(offsetContext.getOffset()),
+                    SignalEventDispatcher.WatermarkKind.BINLOG_START);
+        }
         this.context = context;
         super.execute(context, offsetContext);
     }
