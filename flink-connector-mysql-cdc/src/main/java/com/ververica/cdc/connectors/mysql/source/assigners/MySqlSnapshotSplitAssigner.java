@@ -44,6 +44,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -168,13 +169,41 @@ public class MySqlSnapshotSplitAssigner implements MySqlSplitAssigner {
             // check whether we got newly added tables
             try (JdbcConnection jdbc = openJdbcConnection(sourceConfig)) {
                 final List<TableId> newlyAddedTables = discoverCapturedTables(jdbc, sourceConfig);
+                List<TableId> tablesToRemove = new LinkedList<>(alreadyProcessedTables);
+                tablesToRemove.addAll(remainingTables);
+                tablesToRemove.removeAll(newlyAddedTables);
+
                 newlyAddedTables.removeAll(alreadyProcessedTables);
                 newlyAddedTables.removeAll(remainingTables);
+
+                // case 1: there are old tables to remove from state
+                if (!tablesToRemove.isEmpty()) {
+                    // remove unassigned tables/splits if it does not satisfy new table filter
+                    remainingTables.removeAll(tablesToRemove);
+                    List<String> splitsToRemove = new LinkedList<>();
+                    for (Map.Entry<String, MySqlSnapshotSplit> splitEntry :
+                            assignedSplits.entrySet()) {
+                        if (tablesToRemove.contains(splitEntry.getValue().getTableId())) {
+                            splitsToRemove.add(splitEntry.getKey());
+                        }
+                    }
+
+                    splitsToRemove.forEach(assignedSplits.keySet()::remove);
+                    splitsToRemove.forEach(splitFinishedOffsets.keySet()::remove);
+                    remainingSplits.removeIf(split -> tablesToRemove.contains(split.getTableId()));
+                    alreadyProcessedTables.removeIf(tableId -> tablesToRemove.contains(tableId));
+                }
+
+                // case 2: there are new tables to add
                 if (!newlyAddedTables.isEmpty()) {
                     // if job is still in snapshot reading phase, directly add all newly added
                     // tables
                     LOG.info("Found newly added tables, start capture newly added tables process");
+
+                    // add new tables
                     remainingTables.addAll(newlyAddedTables);
+
+                    // only suspend the assigner if it is in finished status
                     if (isAssigningFinished(assignerStatus)) {
                         // start the newly added tables process under binlog reading phase
                         LOG.info(
